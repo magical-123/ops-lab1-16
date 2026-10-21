@@ -1,4 +1,4 @@
-# 实验 1 记录：第 <组号> 组
+# 实验 1 记录：第 16 组
 
 现场检查时将打开本文件，按其中的链接核对。证据一律以链接或文本形式给出，不要只贴截图。将 `<填写>` 替换为本组的内容。main 受保护之后，修改本文件也须通过 PR。
 
@@ -6,27 +6,27 @@
 
 | 项 | 内容 |
 |---|---|
-| 小组 | 第 <组号> 组 |
-| 仓库地址 | <https://github.com/…> |
-| 代码载体 | 统一示例 / 自己的项目（<项目名与语言>） |
-| runner 与语言版本 | `ubuntu-24.04`，<Go 或其他语言的版本> |
-| 合并方式 | <squash / merge commit / rebase> |
+| 小组 | 第 16 组 |
+| 仓库地址 | <https://github.com/magical-123/ops-lab1-16> |
+| 代码载体 | 统一示例（`enroll-conflict`，Go） |
+| runner 与语言版本 | `ubuntu-24.04`，Go `1.26.9`（待 B 核对 CI 实际配置） |
+| 合并方式 | squash |
 
 ## 2. 任务 0：本地基线
 
 | 问题 | 观察结果 |
 |---|---|
-| 第一次 `make package` 得到的 BUILD_INFO（粘贴） | <填写> |
-| 修改一行、不提交，再次打包：BUILD_INFO 是否变化？二进制文件的 sha256 是否变化？（贴出两次的 sha256） | <填写> |
-| 两次 `go version -m` 输出中的 vcs 行有何不同？ | <填写> |
-| 仅凭 BUILD_INFO，能否回答该包是什么、在哪台机器上、何时、用哪份代码构建？哪一项信息会出错？ | <填写> |
+| 第一次 `make package` 得到的 BUILD_INFO（粘贴） | `name=enroll-conflict`<br>`version=1.0.0`<br>`build_no=1`<br>`run_id=local`<br>`commit=7b63b41c13f061439997b0e6e4eaa2af922a7aa1`<br>`go=go1.26.9` |
+| 修改一行、不提交，再次打包：BUILD_INFO 是否变化？二进制文件的 sha256 是否变化？（贴出两次的 sha256） | `BUILD_INFO` 未变化；二进制文件的 SHA-256 发生变化。<br>第一次：`f23447d406c42af7dd35e23c2d1b2f15484cfb709cc9b4bb1262643694b8528e`<br>第二次：`a95a0f6b1d604ac705fdefbab2f693447b787f4bd28c4fac3f035e744bd3d593` |
+| 两次 `go version -m` 输出中的 vcs 行有何不同？ | 两次的 `vcs=git`、`vcs.revision=7b63b41c13f061439997b0e6e4eaa2af922a7aa1`、`vcs.time=2026-10-12T16:26:07Z` 相同；`vcs.modified` 由第一次的 `false` 变为第二次的 `true`。 |
+| 仅凭 BUILD_INFO，能否回答该包是什么、在哪台机器上、何时、用哪份代码构建？哪一项信息会出错？ | 可以知道包名、版本、构建号、Go 版本和记录的 Git 提交号；不能确定构建机器和构建时间。`commit` 记录的是 Git HEAD，而不是包含未提交修改的实际源码状态。本次两次 `BUILD_INFO` 完全相同，但二进制 SHA-256 不同，第二次的 `vcs.modified=true`。因此，仅凭 `BUILD_INFO` 判断“由哪份代码构建”可能出错。 |
 
 ## 3. 证据
 
 | 项 | 链接或文本 |
 |---|---|
-| 规则集里启用的规则 | <列出规则名、审批人数和必需检查的名称> |
-| 组长直接 `git push origin main` 被拒的终端输出 | <粘贴文本> |
+| 规则集里启用的规则 | `Require a pull request before merging`（Required approvals = `1`）；`Require status checks to pass`（必需检查 `ci`，GitHub Actions）；`Restrict deletions`、`Block force pushes`（这两项请在 Rulesets 页面核对后确认）。规则集目标为 `main`，实际直接推送已被拒绝。 |
+| 组长直接 `git push origin main` 被拒的终端输出 | `remote: error: GH013: Repository rule violations found for refs/heads/main.`<br>`remote: Review all repository rules at https://github.com/magical-123/ops-lab1-16/rules?ref=refs%2Fheads%2Fmain`<br>`remote: - Changes must be made through a pull request.`<br>`remote: - Required status check "ci" is expected.`<br>`! [remote rejected] main -> main (push declined due to repository rule violations)`<br>`error: failed to push some refs to 'https://github.com/magical-123/ops-lab1-16.git'` |
 | 第一轮：失败的 PR 运行 | <链接> |
 | 第一轮：修复后通过的 PR 运行 | <链接> |
 | 第一轮：合入 main 后的运行（含制品） | <链接> |
@@ -147,4 +147,4 @@
 
 | GitHub 用户名 | 发起并合入的 PR 编号 | 审批过的 PR 编号 |
 |---|---|---|
-| <用户名> | <编号> | <编号> |
+| magical-123 | <编号> | <编号> |
