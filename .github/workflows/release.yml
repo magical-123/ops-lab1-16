@@ -1,0 +1,75 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check release gate
+        env:
+          COMMIT: ${{ github.sha }}
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$COMMIT" origin/main
+
+      - name: Set release variables
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          BUILD_NO: ${{ github.run_number }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
+          echo "VERSION=${TAG_NAME#v}" >> "$GITHUB_ENV"
+          echo "BUILD_NO=$BUILD_NO" >> "$GITHUB_ENV"
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "COMMIT=$COMMIT" >> "$GITHUB_ENV"
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.9'
+
+      - name: Format check
+        run: make fmt-check
+
+      - name: Vet
+        run: make vet
+
+      - name: Test
+        run: make test
+
+      - name: Package
+        run: make package VERSION="$VERSION" BUILD_NO="$BUILD_NO" RUN_ID="$RUN_ID" COMMIT="$COMMIT"
+
+      - name: Verify package
+        run: |
+          PACKAGE=$(find dist -type f -name '*.tar.gz' -print -quit)
+          BINARY=$(find dist -type f -not -name '*.tar.gz' -not -name '*.sha256' -not -name 'BUILD_INFO' -print -quit)
+          sha256sum "$BINARY" "$PACKAGE"
+          cat "$(find dist -type f -name BUILD_INFO -print -quit)"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PACKAGE=$(find dist -type f -name '*.tar.gz' -print -quit)
+          CHECKSUM="${PACKAGE}.sha256"
+          gh release create "$TAG_NAME" \
+            "$PACKAGE" \
+            "$CHECKSUM" \
+            --title "$TAG_NAME" \
+            --generate-notes
