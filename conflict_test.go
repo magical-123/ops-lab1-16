@@ -6,6 +6,9 @@ func TestConflicts(t *testing.T) {
 	mon := func(start, end int, w Weeks) Section {
 		return Section{Weekday: 1, Start: start, End: end, Weeks: w}
 	}
+	tue := func(start, end int, w Weeks) Section {
+		return Section{Weekday: 2, Start: start, End: end, Weeks: w}
+	}
 	cases := []struct {
 		name string
 		a, b Section
@@ -14,7 +17,7 @@ func TestConflicts(t *testing.T) {
 		{"同一时段每周上课", mon(1, 2, AllWeeks), mon(1, 2, AllWeeks), true},
 		{"节次部分重叠", mon(1, 3, AllWeeks), mon(3, 4, AllWeeks), true},
 		{"节次首尾相接不冲突", mon(1, 2, AllWeeks), mon(3, 4, AllWeeks), false},
-		{"不同星期不冲突", mon(1, 2, AllWeeks), Section{Weekday: 2, Start: 1, End: 2, Weeks: AllWeeks}, false},
+		{"不同星期不冲突", mon(1, 2, AllWeeks), tue(1, 2, AllWeeks), false},
 		{"单周对双周不冲突", mon(1, 2, OddWeeks), mon(1, 2, EvenWeeks), false},
 		{"单周对每周冲突", mon(1, 2, OddWeeks), mon(1, 2, AllWeeks), true},
 		{"单周对单周冲突", mon(1, 2, OddWeeks), mon(2, 3, OddWeeks), true},
