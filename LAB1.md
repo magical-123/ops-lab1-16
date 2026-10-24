@@ -151,7 +151,11 @@
 |---|---|
 | O1 容器镜像 | <未做 / 链接、镜像摘要（digest）、运行容器的主机架构> |
 | O2 缓存对反馈时间的影响 | <未做 / 预期、数据与结论> |
-| O3 迁移到小组项目 | <未做 / 仓库链接> |
+| O3 迁移到小组项目 | **进行中：待审批合入及正式 Release 验收。** 真实项目：[InfoDigest](https://github.com/magical-123/SE26Project-08)；[迁移 PR #36](https://github.com/magical-123/SE26Project-08/pull/36)；[迁移差异与证据](https://github.com/magical-123/SE26Project-08/blob/codex/o3-frontend/docs/o3-migration.md)。 |
+
+O3 本次范围为 InfoDigest 前端，后端迁移留待后续。已在原真实项目仓库配置 [main 门禁](https://github.com/magical-123/SE26Project-08/rules/25775887)，仓库已公开；恢复的五套 205 项测试 mock 外部 API，生产构建与本地静态包启动验证通过。原校内服务器已停用，本轮使用 GitHub Release 发布制品，未恢复看门狗自动部署。
+
+已取得证据：[故意错误断言使 CI 失败](https://github.com/magical-123/SE26Project-08/actions/runs/40079231793)、[修复后检查/205 项测试/构建通过](https://github.com/magical-123/SE26Project-08/actions/runs/40079374698)、[非 main 历史标签被 release gate 拒绝且未产出 Release](https://github.com/magical-123/SE26Project-08/actions/runs/40079415954)。管理员直接推 main 被拒绝的服务器原文见迁移说明。**主干制品、正常标签 Release 及发布附件下载校验待 PR 获其他成员审批并合入后补充，当前不标记 O3 全部完成。**
 
 ## 8. 成员贡献
 
