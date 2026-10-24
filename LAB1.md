@@ -151,11 +151,24 @@
 |---|---|
 | O1 容器镜像 | <未做 / 链接、镜像摘要（digest）、运行容器的主机架构> |
 | O2 缓存对反馈时间的影响 | <未做 / 预期、数据与结论> |
-| O3 迁移到小组项目 | **进行中：待审批合入及正式 Release 验收。** 真实项目：[InfoDigest](https://github.com/magical-123/SE26Project-08)；[迁移 PR #36](https://github.com/magical-123/SE26Project-08/pull/36)；[迁移差异与证据](https://github.com/magical-123/SE26Project-08/blob/codex/o3-frontend/docs/o3-migration.md)。 |
+| O3 迁移到小组项目 | **前端迁移与正式发布验收通过。** 真实项目：[InfoDigest](https://github.com/magical-123/SE26Project-08)；[迁移 PR #36](https://github.com/magical-123/SE26Project-08/pull/36)；[迁移差异与证据](https://github.com/magical-123/SE26Project-08/blob/main/docs/o3-migration.md)；[v1.0.0 Release](https://github.com/magical-123/SE26Project-08/releases/tag/v1.0.0)。 |
 
-O3 本次范围为 InfoDigest 前端，后端迁移留待后续。已在原真实项目仓库配置 [main 门禁](https://github.com/magical-123/SE26Project-08/rules/25775887)，仓库已公开；恢复的五套 205 项测试 mock 外部 API，生产构建与本地静态包启动验证通过。原校内服务器已停用，本轮使用 GitHub Release 发布制品，未恢复看门狗自动部署。
+O3 本次范围为 InfoDigest 前端，后端迁移留待后续。原仓库已公开，迁移 [PR #36](https://github.com/magical-123/SE26Project-08/pull/36) 经 Bugbank2 审批后 squash 合入 main。[main 门禁](https://github.com/magical-123/SE26Project-08/rules/25775887) 为 Active、无 Bypass、必需 ci、其他成员一次审批、禁止删除/强推；管理员直接推 main 被 GH013 拒绝的服务器原文见迁移说明。
 
-已取得证据：[故意错误断言使 CI 失败](https://github.com/magical-123/SE26Project-08/actions/runs/40079231793)、[修复后检查/205 项测试/构建通过](https://github.com/magical-123/SE26Project-08/actions/runs/40079374698)、[非 main 历史标签被 release gate 拒绝且未产出 Release](https://github.com/magical-123/SE26Project-08/actions/runs/40079415954)。管理员直接推 main 被拒绝的服务器原文见迁移说明。**主干制品、正常标签 Release 及发布附件下载校验待 PR 获其他成员审批并合入后补充，当前不标记 O3 全部完成。**
+迁移差异：Go 检查/测试/单二进制替换为固定 Node 24.14.0 的 npm ci、oxlint、Vitest 和 Vite 静态资源；恢复五套 205 项真实测试并 mock 外部 API，BUILD_INFO 和 /version.json 使用同一组 Actions 上下文。主干制品保留 14 天，标签发布先检查提交属于 main 历史。原校内服务器已停用，看门狗自动部署暂停，采用 GitHub Release 和本地静态启动验收；业务接口仍需后端。完整归档页面测试尚有过时 fixture，本次不宣称全应用测试覆盖。
+
+门禁证据：[故意错误断言使 CI 失败](https://github.com/magical-123/SE26Project-08/actions/runs/40079231793)、[修复后检查/205 项测试/构建通过](https://github.com/magical-123/SE26Project-08/actions/runs/40079374698)、[非 main 历史标签被 release gate 拒绝且未生成 Release](https://github.com/magical-123/SE26Project-08/actions/runs/40079415954)。正式验收：[main CI 与主干 artifact](https://github.com/magical-123/SE26Project-08/actions/runs/40080173019)、[v1.0.0 发布运行](https://github.com/magical-123/SE26Project-08/actions/runs/40080459868)、[正式 Release 与两个附件](https://github.com/magical-123/SE26Project-08/releases/tag/v1.0.0)。
+
+实际下载发布的 tar.gz 和同名 sha256 后，使用 scripts/frontend_release.py smoke 校验 SHA256、单一顶层目录、BUILD_INFO 与 HTTP /version.json 一致，并验证静态首页；trace 返回对应源码、Actions 和 Release 链接。记录如下：
+
+| 字段 | 实际值 |
+|---|---|
+| name | infodigest-frontend |
+| version | 1.0.0 |
+| build_no | 2 |
+| run_id | 40080459868 |
+| commit | e609f8e86d4db438ae1f852eeffc378aeb999d94 |
+| tar.gz SHA256 | 105a694fe885425d289caebf9b0e0bc18eedf7ffc4448f977c4e03f320b62a91 |
 
 ## 8. 成员贡献
 
