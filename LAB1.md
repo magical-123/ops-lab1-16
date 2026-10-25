@@ -239,7 +239,7 @@ go=go1.26.9
 | 选做 | 完成情况与证据 |
 |---|---|
 | O1 容器镜像 | 已完成。<br>Actions：[v1.0.1 release 运行](https://github.com/magical-123/ops-lab1-16/actions/runs/39730857391)；<br>GHCR：<https://github.com/magical-123/ops-lab1-16/pkgs/container/ops-lab1-16>；<br>镜像：`ghcr.io/magical-123/ops-lab1-16`；<br>v1.0.1 digest：`sha256:b69da7943fa9d4a17f0cf7241431175e97411e374119fc533f7d243724324c1d`；<br>架构：`linux/amd64`；<br>使用 digest 启动容器成功，`/version` 返回 `version=1.0.1`、`commit=aef82d83b0ef54ea310a73dc60805576a53e49f5`、`build_no=3`、`go=go1.26.9`。 |
-| O2 缓存对反馈时间的影响 | <未做 / 预期、数据与结论> |
+| O2 缓存对反馈时间的影响 | **预期：** 示例项目虽无第三方依赖，但 `setup-go` 仍需安装 Go 工具链并缓存构建结果。预期缓存能节省 10-15 秒，主要来自：(1) Go 工具链的安装/配置；(2) `go build` 和 `go test` 的编译缓存。由于代码简单，预期缓存收益主要体现在工具链层面而非依赖下载。<br><br>**实际数据：**<br>• 有缓存：18s, 17s, 17s, 18s, 20s（平均18s，波动3s）<br>• 无缓存：28s, 32s, 29s, 43s, 25s（平均31.4s，波动18s）<br>• 对照 PR：[#1](https://github.com/magical-123/ops-lab1-16/pull/1)<br><br>**结论：** 缓存使 CI 加速约43%（节省13.4秒），**符合预期**。原因：(1) Go 工具链安装/配置被缓存；(2) 构建和测试的编译结果被缓存；(3) 虽无第三方依赖但 Go 本身的缓存收益显著。无缓存组波动更大（18s vs 3s），表明共享 runner 负载对无缓存场景影响更明显。实验局限：样本量小，第4次无缓存运行(43s)可能为异常值。 |
 | O3 迁移到小组项目 | <未做 / 仓库链接> |
 
 ## 8. 成员贡献
@@ -250,3 +250,4 @@ go=go1.26.9
 |---|---|---|
 | magical-123 | <编号> | <编号> |
 | rbhd-sjtu | #6 | <编号> |
+| Bugbank2 | <编号> | <编号> |
