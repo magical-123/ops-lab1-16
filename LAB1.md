@@ -174,7 +174,11 @@ go=go1.26.9
 
 **问题 2：PR 中的构建与 main 上的构建。** 在 PR 触发的运行日志中，`github.sha` 与 `pull_request.head.sha` 是否相同？它们能否在 main 的历史中找到？答案与合并方式有关，请写明本组使用的方式。合并之后，main 上这次改动的提交号是哪个？据此说明，为什么待发布的制品只能从 main 上的提交或 tag 构建。
 
-<填写>
+以 PR #10 为例，在 PR 触发的运行日志中，`github.sha` 为 `f30265a21b8047425e62635daea83e9d5fa2bcae`，`pull_request.head.sha` 为 `86b5981ed480ba3785a7661880880edf45a5f2bb`，两者**不相同**。`pull_request.head.sha` 是 PR 分支上的最后一个提交，而 `github.sha` 是 GitHub 为测试目的创建的临时 merge commit，用于模拟将 PR 合并到 main 后的状态。这两个 SHA **都不在** main 的历史中：`86b5981` 是 PR 分支上的提交，尚未合并；`f30265a` 是临时测试用的 merge commit，不会进入任何分支的历史。
+
+本组使用 **squash merge** 方式。合并后，main 上这次改动的提交号是 `c4df7231be922aecf03b8dc064773d1bdff6b23a`，这是一个全新的提交，将 PR 中的多个提交（`27bc682` 和 `86b5981`）压缩成一个，提交信息、SHA 和作者时间都重新生成。
+
+**为什么待发布的制品只能从 main 或 tag 构建：** (1) PR 中的 `github.sha` 和 `pull_request.head.sha` 都不在 main 历史中，无法通过 `git log` 追溯；(2) squash merge 会生成新的提交号，PR 中构建的制品对应的 SHA 在合并后不再存在；(3) 只有 main 或 tag 上的提交才是真正发布的代码状态，能够保证可追溯性和可重复构建；(4) 如果从 PR 构建制品，其 BUILD_INFO 中的 commit 字段将指向一个不在 main 历史上的幽灵提交，`trace.sh` 会报错"该提交不在 main 的历史上"，无法验证发布的制品来源。
 
 **问题 3：可重复构建。** 在本地同一个提交上按下表构建，记录哈希值。④、⑤ 需临时去掉 Makefile 中 tar 的 `--mtime=@0`，完成后用 `git checkout -- Makefile` 恢复，不要提交。
 
