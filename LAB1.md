@@ -170,7 +170,20 @@ go=go1.26.9
 
 **问题 1：gate 的收益与成本。** 两轮演练中，gate 拦住了什么，没有拦住什么？用第 5 节的时间线计算：第一轮因失败多花了多少时间，其中等待 `ci` 的时间和人工修改的时间各占多少？一次 `ci` 大约需要多久，在"提交到发布的间隔"中占多大比例？第二轮补充测试之后，还有哪类问题是测试本身无法发现的？
 
-<填写>
+所用数据：
+
+| 指标 | 计算结果 |
+|---|---|
+| 第一轮恢复时间 | `11:32:29 − 10:47:30 = 44分59秒` |
+| 恢复期间 CI 累计耗时 | #7、#8、#9 两次尝试、#10：`13＋9＋19＋17＋23＝81秒` |
+| 其余响应、排查、修改及操作间隔 | `2699 − 81＝2618秒＝43分38秒` |
+| 最后一次失败到修复通过 | `11:32:29 − 11:28:59＝3分30秒`，其中修复推送前间隔3分7秒，修复后CI为23秒 |
+| 表中21次CI平均时长 | `353 ÷ 21 ≈ 16.8秒`，范围9～30秒 |
+| 单次平均CI占提交到发布间隔 | PR #3约0.27%；#4约0.43%；#6约0.037% |
+
+其中，恢复期间累计耗时需额外计入此前已核实的 [#9 第一次尝试的19秒](https://github.com/magical-123/ops-lab1-16/actions/runs/39591490938/attempts/1)；21次CI的平均值则严格按第5节表列的21条记录计算。恢复时间从 2026-10-21 UTC 的 [#6 首次失败结束](https://github.com/magical-123/ops-lab1-16/actions/runs/39587142259) 起，计算至 [#10 修复后通过](https://github.com/magical-123/ops-lab1-16/actions/runs/39592661130)，不包含 #6 自身的10秒。
+
+第一轮中，gate 拦住了 gofmt 格式检查不通过的提交，也通过现有测试发现了节次边界判断的逻辑缺陷，使这些问题在修复、检查通过后才进入主干。第二轮中，“双周对双周”缺陷因缺少对应测试而在 #13 中通过，补测试后 #14 失败、撤销缺陷后 #15 通过，说明 gate 的有效性取决于检查内容和测试覆盖。按首次失败结束至修复通过的口径，第一轮恢复耗时约44分59秒，其中后续CI累计运行1分21秒，占约3%。其余43分38秒约占97%，包含响应、排查、人工修改和操作之间的等待，不能全部视为纯人工工时；这个窗口也是观察到的恢复耗时，缺少无失败对照时，不能精确认定它就是失败造成的净额外延迟。若只看最后一次测试失败后的修复阶段，则耗时3分30秒，其中失败结束至推送修复间隔3分7秒，修复后的CI耗时23秒。表中21次CI平均约16.8秒，单次平均运行分别占三个PR提交到发布间隔的约0.27%、0.43%、0.037%，表明本项目单次CI运行的时间占比较小，但这些比例不代表各PR的累计CI成本。即使补齐“双周对双周”用例，其他未覆盖的边界、错误的需求理解，以及未专门验证的性能、安全和生产环境问题仍可能漏检，需要结合人工审查及相应测试发现。上述结论以门禁规则持续强制执行、相关检查真实运行及本组当前项目和样本为条件，不能仅凭CI通过就认定代码正确，也不能直接推广到其他项目。
 
 **问题 2：PR 中的构建与 main 上的构建。** 在 PR 触发的运行日志中，`github.sha` 与 `pull_request.head.sha` 是否相同？它们能否在 main 的历史中找到？答案与合并方式有关，请写明本组使用的方式。合并之后，main 上这次改动的提交号是哪个？据此说明，为什么待发布的制品只能从 main 上的提交或 tag 构建。
 
@@ -245,7 +258,7 @@ go=go1.26.9
 | 选做 | 完成情况与证据 |
 |---|---|
 | O1 容器镜像 | 已完成。<br>Actions：[v1.0.1 release 运行](https://github.com/magical-123/ops-lab1-16/actions/runs/39730857391)；<br>GHCR：<https://github.com/magical-123/ops-lab1-16/pkgs/container/ops-lab1-16>；<br>镜像：`ghcr.io/magical-123/ops-lab1-16`；<br>v1.0.1 digest：`sha256:b69da7943fa9d4a17f0cf7241431175e97411e374119fc533f7d243724324c1d`；<br>架构：`linux/amd64`；<br>使用 digest 启动容器成功，`/version` 返回 `version=1.0.1`、`commit=aef82d83b0ef54ea310a73dc60805576a53e49f5`、`build_no=3`、`go=go1.26.9`。 |
-| O2 缓存对反馈时间的影响 | **预期：** 示例项目虽无第三方依赖，但 `setup-go` 仍需安装 Go 工具链并缓存构建结果。预期缓存能节省 10-15 秒，主要来自：(1) Go 工具链的安装/配置；(2) `go build` 和 `go test` 的编译缓存。由于代码简单，预期缓存收益主要体现在工具链层面而非依赖下载。<br><br>**实际数据：**<br>• 有缓存：18s, 17s, 17s, 18s, 20s（平均18s，波动3s）<br>• 无缓存：28s, 32s, 29s, 43s, 25s（平均31.4s，波动18s）<br><br>**证据链接：**<br>• 有缓存运行：[Run #1](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597/attempts/1), [#2](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597/attempts/2), [#3](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597/attempts/3), [#4](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597/attempts/4), [#5](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597)<br>• 无缓存运行：[Run #1](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598/attempts/1), [#2](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598/attempts/2), [#3](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598/attempts/3), [#4](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598/attempts/4), [#5](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598)<br>• 实验 PR（未合并）：[#8 experiment/cache-test](https://github.com/magical-123/ops-lab1-16/pull/8)<br><br>**结论：** 缓存使 CI 加速约43%（节省13.4秒），**符合预期**。原因：(1) Go 工具链安装/配置被缓存；(2) 构建和测试的编译结果被缓存；(3) 虽无第三方依赖但 Go 本身的缓存收益显著。无缓存组波动更大（18s vs 3s），表明共享 runner 负载对无缓存场景影响更明显。实验局限：样本量小，第4次无缓存运行(43s)可能为异常值。 |
+| O2 缓存对反馈时间的影响 | **预期：** 示例项目虽无第三方依赖，但 `setup-go` 仍需安装 Go 工具链并缓存构建结果。预期缓存能节省 10-15 秒，主要来自 `go vet` 静态分析：`go vet` 需要类型信息来进行代码检查，无缓存时需先编译生成类型信息再分析，有缓存时可直接使用构建缓存中的类型信息，预期节省约 10 秒。其他步骤（工具链安装、测试）的缓存收益相对较小。<br><br>**实际数据：**<br>• 有缓存：18s, 17s, 17s, 18s, 20s（平均18s，波动3s）<br>• 无缓存：28s, 32s, 29s, 43s, 25s（平均31.4s，波动18s）<br><br>**证据链接：**<br>• 有缓存运行：[Run #1](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597/attempts/1), [#2](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597/attempts/2), [#3](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597/attempts/3), [#4](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597/attempts/4), [#5](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866597)<br>• 无缓存运行：[Run #1](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598/attempts/1), [#2](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598/attempts/2), [#3](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598/attempts/3), [#4](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598/attempts/4), [#5](https://github.com/magical-123/ops-lab1-16/actions/runs/40101866598)<br>• 实验 PR（未合并）：[#8 experiment/cache-test](https://github.com/magical-123/ops-lab1-16/pull/8)<br>• 缓存配置：[ci.yml 第19-22行](https://github.com/magical-123/ops-lab1-16/blob/main/.github/workflows/ci.yml#L19-L22)，`actions/setup-go@v7` 的 `cache` 参数（默认 `true`，实验分支设为 `false`）<br><br>**结论：** 缓存使 CI 加速约43%（节省13.4秒），**符合预期**。通过对比各步骤耗时发现，缓存收益主要来自 **`go vet` 步骤**（节省约10秒）：`go vet` 进行静态分析时需要类型信息，无缓存时必须先编译所有代码生成类型信息再分析，有缓存时可直接使用构建缓存（$GOCACHE）中的类型信息跳过编译。其他步骤如工具链安装、测试等的缓存收益相对有限（合计约3-4秒）。无缓存组波动更大（18s vs 3s），表明共享 runner 负载对无缓存场景影响更明显。实验局限：样本量小，第4次无缓存运行(43s)可能为异常值。 |
 | O3 迁移到小组项目 | **前端迁移与正式发布验收通过。** 真实项目：[InfoDigest](https://github.com/magical-123/SE26Project-08)；[迁移 PR #36](https://github.com/magical-123/SE26Project-08/pull/36)；[迁移差异与证据](https://github.com/magical-123/SE26Project-08/blob/main/docs/o3-migration.md)；[v1.0.0 Release](https://github.com/magical-123/SE26Project-08/releases/tag/v1.0.0)。 |
 
 O3 本次范围为 InfoDigest 前端，后端迁移留待后续。原仓库已公开，迁移 [PR #36](https://github.com/magical-123/SE26Project-08/pull/36) 经 Bugbank2 审批后 squash 合入 main。[main 门禁](https://github.com/magical-123/SE26Project-08/rules/25775887) 为 Active、无 Bypass、必需 ci、其他成员一次审批、禁止删除/强推；管理员直接推 main 被 GH013 拒绝的服务器原文见迁移说明。
