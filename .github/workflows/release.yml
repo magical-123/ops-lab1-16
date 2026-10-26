@@ -1,31 +1,71 @@
-name: release
+# ============================================================================
+# 发布工作流 (Release Workflow)
+# 作用：当推送版本tag时，自动创建GitHub Release并上传制品
+# ============================================================================
 
+name: release                           # 工作流名称，显示在Actions页面
+
+# ============================================================================
+# 触发条件：只有推送符合 v数字.数字.数字 格式的tag才会触发
+# 例如：v1.0.0, v2.1.3 会触发；v1.0, release-1.0 不会触发
+# 注意：这是GitHub的过滤语法，不是正则表达式
+# ============================================================================
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
+# ============================================================================
+# 权限声明
+# contents: write  - 创建GitHub Release需要写权限（ci只需要read）
+# packages: write  - 推送GHCR容器镜像需要包权限（O1选做）
+# ============================================================================
 permissions:
   contents: write
   packages: write
 
 jobs:
+  # ==========================================================================
+  # Job 1: release - 主发布任务
+  # ==========================================================================
   release:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04               # 固定runner版本，保证构建环境一致
 
     steps:
+      # ----------------------------------------------------------------------
+      # Step 1: 检出代码
+      # fetch-depth: 0 表示获取完整Git历史（而不是只拉最新提交）
+      # 为什么需要完整历史？因为下一步release gate要判断tag是否在main历史中
+      # ----------------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
+      # ----------------------------------------------------------------------
+      # Step 2: Release Gate（发布门禁）- 最关键的安全检查！
+      # 作用：确保只有main历史上的提交才能发布
+      # 命令：git merge-base --is-ancestor A B
+      #       判断提交A是否是B的祖先（即A是否在B的历史中）
+      # 如果tag指向的提交不在main历史上，命令返回退出码1，工作流失败
+      # 这样就阻止了在未合入main的分支上直接打tag发布
+      # ----------------------------------------------------------------------
       - name: Check release gate
         env:
-          COMMIT: ${{ github.sha }}
+          COMMIT: ${{ github.sha }}     # tag指向的提交号
         run: |
-          git fetch origin main
+          git fetch origin main         # 先拉取main的最新状态
           git merge-base --is-ancestor "$COMMIT" origin/main
 
+      # ----------------------------------------------------------------------
+      # Step 3: 设置发布变量
+      # TAG_NAME: tag名称，如 v1.0.0
+      # VERSION: 从tag提取版本号，v1.0.0 → 1.0.0 （${TAG_NAME#v} 去掉开头的v）
+      # BUILD_NO: 构建号，该工作流的第几次运行
+      # RUN_ID: 运行ID，GitHub全局唯一，用于追溯到具体运行
+      # COMMIT: 提交号，用于追溯到源码
+      # 写入GITHUB_ENV后，后续step可以直接用 $VERSION 等变量
+      # ----------------------------------------------------------------------
       - name: Set release variables
         env:
           TAG_NAME: ${{ github.ref_name }}
@@ -39,11 +79,22 @@ jobs:
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
           echo "COMMIT=$COMMIT" >> "$GITHUB_ENV"
 
+      # ----------------------------------------------------------------------
+      # Step 4: 安装Go
+      # 固定版本1.26.9，保证每次构建使用相同的Go版本
+      # ----------------------------------------------------------------------
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version: '1.26.9'
 
+      # ----------------------------------------------------------------------
+      # Step 5-7: 质量检查（发布前再次验证）
+      # 虽然CI已经测过，但release时再跑一遍确保万无一失
+      # fmt-check: 代码格式检查
+      # vet: Go静态分析，发现潜在问题
+      # test: 运行所有测试
+      # ----------------------------------------------------------------------
       - name: Format check
         run: make fmt-check
 
@@ -53,9 +104,20 @@ jobs:
       - name: Test
         run: make test
 
+      # ----------------------------------------------------------------------
+      # Step 8: 打包
+      # 把版本号、构建号、提交号等信息写入BUILD_INFO和二进制文件
+      # 生成 dist/enroll-conflict_1.0.0_linux_amd64.tar.gz
+      # 以及 dist/enroll-conflict_1.0.0_linux_amd64.tar.gz.sha256
+      # ----------------------------------------------------------------------
       - name: Package
         run: make package VERSION="$VERSION" BUILD_NO="$BUILD_NO" RUN_ID="$RUN_ID" COMMIT="$COMMIT"
 
+      # ----------------------------------------------------------------------
+      # Step 9: 验证打包结果
+      # 打印二进制和tar.gz的SHA-256校验和，方便追溯和对比
+      # 打印BUILD_INFO内容，确认版本信息正确
+      # ----------------------------------------------------------------------
       - name: Verify package
         run: |
           PACKAGE=$(find dist -type f -name '*.tar.gz' -print -quit)
@@ -63,6 +125,13 @@ jobs:
           sha256sum "$BINARY" "$PACKAGE"
           cat "$(find dist -type f -name BUILD_INFO -print -quit)"
 
+      # ----------------------------------------------------------------------
+      # Step 10: 创建GitHub Release
+      # 使用gh命令行工具（runner上已预装）创建Release
+      # 上传 .tar.gz 和 .sha256 文件作为附件
+      # --generate-notes: 自动根据commits生成发布说明
+      # GH_TOKEN: 通过环境变量传入token，而不是直接拼接（安全做法）
+      # ----------------------------------------------------------------------
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -74,17 +143,33 @@ jobs:
             "$CHECKSUM" \
             --title "$TAG_NAME" \
             --generate-notes
+
+  # ==========================================================================
+  # Job 2: image - 容器镜像构建（O1选做，最多+4分）
+  # needs: release 表示必须等release job完成后才执行
+  # 为什么不能单独触发？因为通过GITHUB_TOKEN创建的Release不会触发新工作流
+  # ==========================================================================
   image:
-    needs: release
+    needs: release                      # 依赖release job，等它完成后再执行
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      packages: write
+      packages: write                   # 推送镜像到GHCR需要写权限
 
     steps:
+      # ----------------------------------------------------------------------
+      # Step 1: 检出代码（获取Dockerfile）
+      # ----------------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v7
 
+      # ----------------------------------------------------------------------
+      # Step 2: 下载Release附件
+      # 从刚才创建的Release中下载.tar.gz
+      # 解压到image-context/build目录，作为Docker构建上下文
+      # 关键：镜像中放的是已构建好的二进制，不在Dockerfile里重新编译
+      # 这符合"build once, deploy many"原则（L-05第11页）
+      # ----------------------------------------------------------------------
       - name: Download Release attachment
         env:
           GH_TOKEN: ${{ github.token }}
@@ -97,6 +182,10 @@ jobs:
           PKG_DIR=$(find image-context -mindepth 1 -maxdepth 1 -type d -print -quit)
           mv "$PKG_DIR" image-context/build
 
+      # ----------------------------------------------------------------------
+      # Step 3: 登录GHCR（GitHub Container Registry）
+      # GHCR是GitHub提供的容器镜像仓库，地址格式：ghcr.io/<用户>/<仓库>
+      # ----------------------------------------------------------------------
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -104,9 +193,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # ----------------------------------------------------------------------
+      # Step 4: 设置镜像名称
+      # ${GITHUB_REPOSITORY,,} 将仓库名转为小写（GHCR要求小写）
+      # 例如：magical-123/Ops-Lab1-16 → magical-123/ops-lab1-16
+      # ----------------------------------------------------------------------
       - name: Set image name
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
+      # ----------------------------------------------------------------------
+      # Step 5: 构建并推送镜像
+      # context: 使用解压后的Release附件作为构建上下文（包含二进制和BUILD_INFO）
+      # file: Dockerfile在仓库根目录
+      # platforms: linux/amd64（因为Release制品是amd64架构）
+      # build-args: 传入版本号、提交号、源码地址，写入镜像OCI标签
+      # ----------------------------------------------------------------------
       - name: Build and push image
         id: build
         uses: docker/build-push-action@v6
@@ -121,6 +222,12 @@ jobs:
             COMMIT=${{ github.sha }}
             SOURCE=https://github.com/${{ github.repository }}
 
+      # ----------------------------------------------------------------------
+      # Step 6: 用digest运行镜像验证
+      # 使用 镜像@sha256:... 的方式启动容器（而不是用tag）
+      # 为什么用digest？digest是内容哈希，不可变；tag可能被覆盖
+      # 访问/version接口，验证镜像能正常运行并返回版本信息
+      # ----------------------------------------------------------------------
       - name: Run image by digest
         env:
           IMAGE: ghcr.io/${{ github.repository }}
