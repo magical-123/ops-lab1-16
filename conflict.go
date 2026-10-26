@@ -51,5 +51,5 @@ func Conflicts(a, b Section) bool {
 	if !weeksOverlap(a.Weeks, b.Weeks) {
 		return false
 	}
-	return a.Start <= b.End && b.Start <= a.End
+	return a.Start <= b.End && b.Start < a.End
 }
