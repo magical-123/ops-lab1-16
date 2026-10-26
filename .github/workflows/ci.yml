@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: '1.26.9'
+          cache: false  # O2 实验：关闭缓存
 
       # TODO 2：添加一个 step，打印 github.event_name、github.ref、github.sha
       #         和 github.event.pull_request.head.sha（问题 2 需要）。
